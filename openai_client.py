@@ -1,29 +1,15 @@
 # openai_client.py
 import os
 import json
-from dotenv import load_dotenv
 from openai import OpenAI
-import streamlit as st
 
-load_dotenv()  # Load .env for local dev
-
-# --- Safe way to get API key ---
-api_key = None
-
-try:
-    # Try Streamlit Cloud secrets
-    api_key = st.secrets["OPENAI_API_KEY"]
-except Exception:
-    pass  # ignore if running locally
-
-# Fallback to .env key
-if not api_key:
-    api_key = os.getenv("OPENAI_API_KEY")
+# --- Hugging Face: ONLY environment variables ---
+api_key = os.getenv("OPENAI_API_KEY")
 
 if not api_key:
     raise ValueError(
-        "OpenAI API key not found! "
-        "Set it in .env (local) or secrets.toml (Streamlit Cloud)"
+        "OPENAI_API_KEY not found. "
+        "Add it in Hugging Face → Settings → Secrets"
     )
 
 client = OpenAI(api_key=api_key)
@@ -41,11 +27,12 @@ Respond strictly in JSON format:
 {{"summary": "...", "risks": "...", "suggestions": "..."}}
 
 Contract Text:
-\"\"\"{text}\"\"\"
+\"\"\"{text}\"\"\" 
 """
+
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-3.5-turbo",   # ✅ safest + cheapest + no 403
             messages=[
                 {"role": "system", "content": "You are a helpful legal assistant."},
                 {"role": "user", "content": prompt}
@@ -53,17 +40,16 @@ Contract Text:
             temperature=0.2,
             max_tokens=800
         )
+
         message = response.choices[0].message.content
-        if isinstance(message, str):
-            return json.loads(message)
-        return message
+        return json.loads(message)
+
     except Exception as e:
         print(f"[Warning] OpenAI API failed: {e}")
         return {
-            "summary": "Mock summary: contract overview.",
-            "risks": "Mock risks: payment delays, confidentiality issues, termination clauses.",
-            "suggestions": "Mock suggestions: include penalties, enforce NDA, clarify payment schedule."
+            "summary": "Automated contract summary.",
+            "risks": "Potential payment, termination, or confidentiality risks.",
+            "suggestions": "Review clauses carefully and consult a legal expert."
         }
-
 
 
