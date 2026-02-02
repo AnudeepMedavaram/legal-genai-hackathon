@@ -2,31 +2,35 @@
 import streamlit as st
 from file_loader import extract_text
 from openai_client import analyze_legal_text
-import re, spacy, hashlib, os, json, io
+import re
 from fpdf import FPDF
+import io
 from langdetect import detect
+import spacy
+import hashlib
+import os
+import json
 from datetime import datetime
+from dotenv import load_dotenv
+load_dotenv()
 
-# --- Load spaCy model ---
+# Load spaCy model
 nlp = spacy.load("en_core_web_sm")
 
-# --- Streamlit UI ---
-st.set_page_config(page_title="GenAI Legal Assistant", layout="wide")
-st.title("📄 GenAI-Powered Legal Assistant for SMEs")
-st.write("Upload a contract file (PDF, DOCX, TXT) to analyze clauses, risks, and summary.")
-
-# --- Helpers ---
+# Clause splitting
 def split_clauses(text: str):
     clauses = re.split(r'\n\d+\.\s', text)
     clauses = [c.strip() for c in clauses if c.strip()]
     return clauses
 
+# Clause type detection
 CLAUSE_KEYWORDS = {
     "Termination": ["termination", "terminate", "notice period"],
     "Payment": ["shall pay", "payment", "invoice", "INR"],
     "Confidentiality": ["confidential", "non-disclosure", "nda"],
     "Penalty": ["penalty", "fine", "late fee"]
 }
+
 def detect_clause_type(clause):
     for ctype, keywords in CLAUSE_KEYWORDS.items():
         for kw in keywords:
@@ -34,11 +38,13 @@ def detect_clause_type(clause):
                 return ctype
     return "Other"
 
+# Risk scoring
 RISK_KEYWORDS = {
     "High": ["unilateral termination", "indemnity unlimited", "penalty", "confidentiality breach"],
     "Medium": ["automatic renewal", "late payment fees"],
     "Low": []
 }
+
 def score_risk(clause):
     clause_lower = clause.lower()
     for level, keywords in RISK_KEYWORDS.items():
@@ -46,8 +52,10 @@ def score_risk(clause):
             return level
     return "Low"
 
+# Audit logging
 LOG_DIR = "logs"
 os.makedirs(LOG_DIR, exist_ok=True)
+
 def log_session(file_name, contract_text, risk_summary):
     hash_val = hashlib.sha256(contract_text.encode()).hexdigest()
     log_data = {
@@ -60,7 +68,7 @@ def log_session(file_name, contract_text, risk_summary):
     with open(log_file, "w") as f:
         json.dump(log_data, f, indent=2)
 
-# PDF helpers
+# Safe PDF helpers
 def safe_pdf_text(text):
     return ''.join([c if 32 <= ord(c) <= 126 else ' ' for c in text])
 
@@ -81,7 +89,10 @@ def safe_multi_cell(pdf, text, height=6):
                     pdf.multi_cell(max_width, height, current_line)
                 current_line = word
             else:
-                current_line = current_line + " " + word if current_line else word
+                if current_line:
+                    current_line += " " + word
+                else:
+                    current_line = word
         if current_line:
             pdf.multi_cell(max_width, height, current_line)
 
@@ -104,25 +115,27 @@ def create_pdf(contract_text, clauses_info, analysis):
     buffer.seek(0)
     return buffer
 
-# --- File upload & processing ---
+# --- Streamlit UI ---
+st.set_page_config(page_title="GenAI Legal Assistant", layout="wide")
+st.title("📄 GenAI-Powered Legal Assistant for SMEs")
+st.write("Upload a contract file (PDF, DOCX, TXT) to analyze clauses, risks, and summary.")
+
 uploaded_file = st.file_uploader("Upload Contract", type=["pdf", "docx", "txt"])
+
 if uploaded_file:
     st.success("File uploaded successfully!")
     contract_text = extract_text(uploaded_file)
-
     lang = detect(contract_text)
     if lang == "hi":
         st.info("Detected language: Hindi → Translating to English internally")
         try:
-            analysis = analyze_legal_text(f"Translate to English:\n\n{contract_text}")["summary"]
+            contract_text = analyze_legal_text(f"Translate this to English:\n\n{contract_text}")["summary"]
         except:
-            st.warning("Translation failed. Using original text.")
+            st.warning("Translation fallback: using original text")
 
-    # --- Preview ---
     st.subheader("📜 Contract Preview")
     st.text_area("Contract Content", contract_text[:3000], height=300)
 
-    # --- Clause detection ---
     clauses = split_clauses(contract_text)
     clauses_info = []
     st.subheader("🔹 Clauses Detected")
@@ -137,11 +150,9 @@ if uploaded_file:
         if entities:
             st.markdown(f"Entities: {entities}")
 
-    # --- Analysis ---
     st.subheader("📊 Analysis")
     with st.spinner("Analyzing contract..."):
         analysis = analyze_legal_text(contract_text)
-
     with st.expander("Summary"):
         st.write(analysis.get("summary", "No summary generated."))
     with st.expander("Risks"):
@@ -149,10 +160,8 @@ if uploaded_file:
     with st.expander("Suggestions"):
         st.write(analysis.get("suggestions", "No suggestions generated."))
 
-    # --- Audit logging ---
     log_session(uploaded_file.name, contract_text, [c["risk"] for c in clauses_info])
 
-    # --- PDF download ---
     pdf_buffer = create_pdf(contract_text, clauses_info, analysis)
     st.download_button(
         label="📥 Download Contract Analysis PDF",
@@ -160,5 +169,6 @@ if uploaded_file:
         file_name="contract_analysis.pdf",
         mime="application/pdf"
     )
+
 
 
