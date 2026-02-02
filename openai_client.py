@@ -1,14 +1,35 @@
+# openai_client.py
 import os
 import json
+from dotenv import load_dotenv
 from openai import OpenAI
 import streamlit as st
 
-# Load API key from Streamlit secrets first, fallback to .env
-api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+load_dotenv()  # Load .env for local dev
+
+# --- Safe way to get API key ---
+api_key = None
+
+try:
+    # Try Streamlit Cloud secrets
+    api_key = st.secrets["OPENAI_API_KEY"]
+except Exception:
+    pass  # ignore if running locally
+
+# Fallback to .env key
+if not api_key:
+    api_key = os.getenv("OPENAI_API_KEY")
+
+if not api_key:
+    raise ValueError(
+        "OpenAI API key not found! "
+        "Set it in .env (local) or secrets.toml (Streamlit Cloud)"
+    )
+
 client = OpenAI(api_key=api_key)
 
 def analyze_legal_text(text: str) -> dict:
-    """Analyze contract text via OpenAI. Always returns dict."""
+    """Analyze contract text via OpenAI. Returns a dict always."""
     prompt = f"""
 You are a legal assistant for Indian SMEs.
 Analyze the following contract text:
@@ -20,8 +41,8 @@ Respond strictly in JSON format:
 {{"summary": "...", "risks": "...", "suggestions": "..."}}
 
 Contract Text:
-\"\"\"{text}\"\"\""""
-
+\"\"\"{text}\"\"\"
+"""
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -43,4 +64,6 @@ Contract Text:
             "risks": "Mock risks: payment delays, confidentiality issues, termination clauses.",
             "suggestions": "Mock suggestions: include penalties, enforce NDA, clarify payment schedule."
         }
+
+
 
