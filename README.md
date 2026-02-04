@@ -36,10 +36,13 @@ The system is built with safe fallback mechanisms, ensuring the application rema
 
 👉 https://legal-genai-hackathon.onrender.com/ 
 
-Project Status
 
-Phase 1 Completed
--Core contract analysis pipeline implemented
--GenAI integration with safe error handling
--Fully deployed and publicly accessible web application
--Future phases can extend this system with advanced NLP models, multilingual support, and deeper legal reasoning.
+## Project Status
+
+**Phase 1 Completed**
+
+- Core contract analysis pipeline implemented  
+- GenAI integration with safe error and quota handling  
+- Fully deployed and publicly accessible web application  
+- Architecture designed for future extensions such as advanced NLP, multilingual support, and deeper legal reasoning
+
