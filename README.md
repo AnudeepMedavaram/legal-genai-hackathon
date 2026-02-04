@@ -35,9 +35,11 @@ The system is built with safe fallback mechanisms, ensuring the application rema
 
 ## Project Status
 **Phase 1 Completed**
+
 - Core contract analysis pipeline implemented  
 - GenAI integration with safe error and quota handling  
 - Fully deployed and publicly accessible web application  
 - Architecture designed for future extensions such as advanced NLP, multilingual support, and deeper legal reasoning  
+
 
 
